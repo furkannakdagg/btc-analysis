@@ -7,7 +7,6 @@ from PIL import Image
 qr = Image.open('QR.png')
 btc_logo = Image.open('btc.png')
 df = pd.read_csv("data.csv")
-btc = yf.download("BTC-USD", start="2014-09-17", end="2022-09-20")
 
 test_one = pd.read_csv("test_one.csv", index_col=[0])
 test_one.index = test_one.index.astype("datetime64[ns]")
@@ -164,14 +163,19 @@ def prediction():
     )
     fin_res = pd.concat([df_lgbm, df_tes, df_sar], axis=1)
     for i in range(len(fin_res)):
-        calc = fin_res.iloc[i, :]["lgbm_exp"] * 0.4 + fin_res.iloc[i, :]["tes_exp"] * 0.3 + fin_res.iloc[i, :][
-            "sar_exp"]
+        if i == 0:
+            calc = fin_res.iloc[i, :]["lgbm_exp"]
+        elif i < 4:
+            calc = fin_res.iloc[i, :]["lgbm_exp"] * 0.4 + fin_res.iloc[i, :]["tes_exp"] * 0.3 + fin_res.iloc[i, :][
+                "sar_exp"] * 0.3
+        else:
+            calc = fin_res.iloc[i, :]["tes_exp"] * 0.49 + fin_res.iloc[i, :]["sar_exp"] * 0.51
 
         if calc > 0.5:
-            st.success(str(fin_res.index[0].date()) + " " + inc)
+            st.success(str(fin_res.index[i].date()) + " " + inc)
 
         else:
-            st.error(str(fin_res.index[0].date()) + " " + dec)
+            st.error(str(fin_res.index[i].date()) + " " + dec)
 
 
 def other_coins():
