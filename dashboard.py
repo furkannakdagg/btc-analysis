@@ -23,7 +23,6 @@ sarima_prediction.index = sarima_prediction.index.astype("datetime64[ns]")
 sarima_prediction.rename(columns={"predicted_mean": "Prediction"}, inplace=True)
 concat_sarima_test = pd.concat([test_one, sarima_prediction], ignore_index=True)  # for better plotting
 
-# data["Close Time"] = pd.to_datetime(data["Close Time"])
 pred = pd.read_csv("prediction.csv", index_col=[0])  # for LGBM
 pred.index = pred.index.astype("datetime64[ns]")
 data = df.copy()
@@ -83,7 +82,6 @@ def indicators():
     start = st.date_input("Start", value=pd.to_datetime("2014-09-17"))
     end = st.date_input("End", value=pd.to_datetime("2022-09-19"))
 
-    # st.line_chart(data["Close"])
     interval = (data.loc[:, "Close Time"] < end) & (data.loc[:, "Close Time"] > start)
     st.line_chart(data[interval]["Close"])
 
@@ -94,23 +92,13 @@ def indicators():
 
         except KeyError:
             if "BBANDS" in dropdown:
-                # st.line_chart(data.loc[:, ["Close", "MiddleBand_30", "UpperBand_30", "LowerBand_30"]])
                 st.line_chart(data[interval][["Close", "MiddleBand_30", "UpperBand_30", "LowerBand_30"]])
             if "MA50" in dropdown:
-                # st.line_chart(data.loc[:, ["Close", "SMA_50"]])
                 st.line_chart(data[interval][["Close", "SMA_50"]])
             if "MA100" in dropdown:
-                # st.line_chart(data.loc[:, ["Close", "SMA_100"]])
                 st.line_chart(data[interval][["Close", "SMA_100"]])
             if "MACD" in dropdown:
                 st.line_chart(data[interval][["MACD_", "MACDsig"]])
-
-
-
-    # df = yf.download(dropdown, start, end)["Adj Close"]
-    # st.line_chart(df)
-    # st.line_chart(data.loc[(data.loc[:, "Close Time"] > start) & (data.loc[:, "Close Time"] < end), dropdown])
-    # st.line_chart(data[(data.index > start) & (data.index < end), dropdown])
 
 
 def prediction():
@@ -134,14 +122,13 @@ def prediction():
         for i in range(len(df)):
             if df["Prediction"][i:i + 1][0] > last_price:
                 st.success(str(df.index[i].date()) + " " + inc)
-                last_price = df["Prediction"][i:i+1][0]
+                last_price = df["Prediction"][i:i + 1][0]
                 exp_list.append(1)
             else:
                 st.error(str(df.index[i].date()) + " " + dec)
-                last_price = df["Prediction"][i:i+1][0]
+                last_price = df["Prediction"][i:i + 1][0]
                 exp_list.append(0)
         return exp_list
-
 
     st.markdown("### Original Chart")
     st.line_chart(data["2020-11-01":].loc[:, "Close"])
@@ -176,15 +163,14 @@ def prediction():
     )
     fin_res = pd.concat([df_lgbm, df_tes, df_sar], axis=1)
     for i in range(len(fin_res)):
-        calc = fin_res.iloc[i, :]["lgbm_exp"] * 0.4 + fin_res.iloc[i, :]["tes_exp"] * 0.3 +fin_res.iloc[i, :]["sar_exp"]
+        calc = fin_res.iloc[i, :]["lgbm_exp"] * 0.4 + fin_res.iloc[i, :]["tes_exp"] * 0.3 + fin_res.iloc[i, :][
+            "sar_exp"]
 
         if calc > 0.5:
             st.success(str(fin_res.index[0].date()) + " " + inc)
 
         else:
             st.error(str(fin_res.index[0].date()) + " " + dec)
-
-
 
 
 def other_coins():
@@ -231,7 +217,6 @@ def other_coins():
         st.line_chart(others[["MACD", "MACDsig"]])
 
 
-
 page_names_to_funcs = {
     "Intro 👋": intro,
     "Indicators 📊": indicators,
@@ -242,6 +227,3 @@ page_names_to_funcs = {
 
 demo_name = st.sidebar.selectbox("Choose a section", page_names_to_funcs.keys())
 page_names_to_funcs[demo_name]()
-
-
-
