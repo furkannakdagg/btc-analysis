@@ -2,25 +2,54 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 from indicators import *
+from PIL import Image
 
-
+qr = Image.open('QR.png')
+btc_logo = Image.open('btc.png')
 df = pd.read_csv("data.csv")
 btc = yf.download("BTC-USD", start="2014-09-17", end="2022-09-20")
-# btc.to_csv("btc.csv", index=False)
-# data.index = btc.index.map(str)
-# btc.index = pd.to_datetime(btc.index)
+
+test_one = pd.read_csv("test_one.csv", index_col=[0])
+test_one.index = test_one.index.astype("datetime64[ns]")
+test_one.rename(columns={"Close": "Prediction"}, inplace=True)
+
+tes_prediction = pd.read_csv("tes_prediction_small.csv", index_col=[0])
+tes_prediction.index = tes_prediction.index.astype("datetime64[ns]")
+tes_prediction.rename(columns={"Close": "Prediction"}, inplace=True)
+concat_tes_test = pd.concat([test_one, tes_prediction])  # for better plotting
+
+sarima_prediction = pd.read_csv("sarima_prediction.csv", index_col=[0])
+sarima_prediction.index = sarima_prediction.index.astype("datetime64[ns]")
+sarima_prediction.rename(columns={"predicted_mean": "Prediction"}, inplace=True)
+concat_sarima_test = pd.concat([test_one, sarima_prediction], ignore_index=True)  # for better plotting
+
 # data["Close Time"] = pd.to_datetime(data["Close Time"])
-pred = pd.read_csv("prediction.csv")
-pred.columns = ["Precision"]
+pred = pd.read_csv("prediction.csv", index_col=[0])  # for LGBM
+pred.index = pred.index.astype("datetime64[ns]")
 data = df.copy()
 data.index = data["Close Time"].astype("datetime64[ns]")
 data["Close Time"] = pd.to_datetime(data["Close Time"]).dt.date
-data["Precision"] = pred["Precision"]
+data["Prediction"] = pred["Prediction"]
+data["MACD_"] = data["MACD"]
+data.drop("MACD", axis=1, inplace=True)
+
+st.set_page_config(
+    page_title="BTC Prediction System",
+    page_icon="👋",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 
 def intro():
     import streamlit as st
 
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(qr, width=125)
+    with col2:
+        st.markdown(
+            "[![Foo](https://img.icons8.com/material-outlined/96/000000/github.png)](https://github.com/furkannakdagg/btc-analysis)")
     st.write("# Welcome to Bitcoin Analysis! 👋")
     st.sidebar.success("Select an operation above.")
 
@@ -45,14 +74,9 @@ def intro():
 
 
 def indicators():
+    st.markdown("# BTC Indicators")
 
-    st.sidebar.markdown("Intro")
-    st.sidebar.title("Indicators📊")
-    st.sidebar.markdown("Prediction")
-    st.sidebar.markdown("Other Coins")
-    st.title("BTC Indicators")
-
-    options = ["MFI", "RSI", "BBANDS", "MA50", "MA100"]
+    options = ["RSI", "MACD", "BBANDS", "MFI", "MA50", "MA100"]
 
     dropdown = st.multiselect("Pick your indicators", options)
 
@@ -66,7 +90,6 @@ def indicators():
     if len(dropdown) > 0:
         try:
             for i in dropdown:
-                # st.line_chart(data.loc[:, i])
                 st.line_chart(data[interval][i])
 
         except KeyError:
@@ -79,6 +102,10 @@ def indicators():
             if "MA100" in dropdown:
                 # st.line_chart(data.loc[:, ["Close", "SMA_100"]])
                 st.line_chart(data[interval][["Close", "SMA_100"]])
+            if "MACD" in dropdown:
+                st.line_chart(data[interval][["MACD_", "MACDsig"]])
+
+
 
     # df = yf.download(dropdown, start, end)["Adj Close"]
     # st.line_chart(df)
@@ -86,12 +113,8 @@ def indicators():
     # st.line_chart(data[(data.index > start) & (data.index < end), dropdown])
 
 
-def precision():
+def prediction():
     st.markdown("# Prediction of BTC")
-    st.sidebar.markdown("Intro")
-    st.sidebar.markdown("Indicators")
-    st.sidebar.title("Prediction 📈")
-    st.sidebar.markdown("Other Coins")
     st.write(
         """
         There are 4 different charts for this section.
@@ -101,16 +124,71 @@ def precision():
         - 4. Result of LGBM Model 
         """
     )
-    st.line_chart(data["Close"])
-    st.line_chart(pred["Precision"])
+
+    inc = "Expectation: Increase 📈"
+    dec = "Expectation: Decrease 📉"
+
+    def result(df):
+        exp_list = []
+        last_price = test_one["Prediction"][len(test_one) - 1]
+        for i in range(len(df)):
+            if df["Prediction"][i:i + 1][0] > last_price:
+                st.success(str(df.index[i].date()) + " " + inc)
+                last_price = df["Prediction"][i:i+1][0]
+                exp_list.append(1)
+            else:
+                st.error(str(df.index[i].date()) + " " + dec)
+                last_price = df["Prediction"][i:i+1][0]
+                exp_list.append(0)
+        return exp_list
+
+
+    st.markdown("### Original Chart")
+    st.line_chart(data["2020-11-01":].loc[:, "Close"])
+
+    st.markdown("### LGBM Prediction")
+    st.line_chart(pred["2022-05-08":])
+    exp_lgbm = result(pred["2022-09-19":])
+    df_lgbm = pd.DataFrame(exp_lgbm, columns=["lgbm_exp"], index=pred["2022-09-19":].index)
+
+    st.markdown("### TES Prediction")
+    st.line_chart(concat_tes_test["Prediction"])
+    exp_tes = result(tes_prediction["2022-09-20":"2022-09-26"])
+    df_tes = pd.DataFrame(exp_tes, columns=["tes_exp"], index=tes_prediction["2022-09-20":"2022-09-26"].index)
+
+    st.markdown("### SARIMA Prediction")
+    st.line_chart(sarima_prediction["Prediction"])
+    exp_sar = result(sarima_prediction["2022-09-20":])
+    df_sar = pd.DataFrame(exp_sar, columns=["sar_exp"], index=sarima_prediction["2022-09-20":].index)
+
+    st.markdown("")
+    st.markdown("")
+    st.markdown("## Final Result")
+    st.write(
+        """
+        This section calculates the overall result of the prediction. The prediction is based on the algorithm weights.
+        
+        Weights are considered with the following percentages:
+        - LGBM: 40%
+        - TES: 30%
+        - SARIMA: 30%
+        """
+    )
+    fin_res = pd.concat([df_lgbm, df_tes, df_sar], axis=1)
+    for i in range(len(fin_res)):
+        calc = fin_res.iloc[i, :]["lgbm_exp"] * 0.4 + fin_res.iloc[i, :]["tes_exp"] * 0.3 +fin_res.iloc[i, :]["sar_exp"]
+
+        if calc > 0.5:
+            st.success(str(fin_res.index[0].date()) + " " + inc)
+
+        else:
+            st.error(str(fin_res.index[0].date()) + " " + dec)
+
+
 
 
 def other_coins():
     st.markdown("# Other Coins")
-    st.sidebar.markdown("Intro")
-    st.sidebar.markdown("Indicators")
-    st.sidebar.markdown("Prediction")
-    st.sidebar.title("Other Coins 💰")
     st.write(
         """
         You can see the other coins graphs on this page. Select the coins you want look from the menu.
@@ -118,11 +196,10 @@ def other_coins():
     )
 
     tickers = ["ETH-USD", "BNB-USD", "AVAX-USD", "TRY=X"]
-    options = ["None", "MFI", "RSI", "BBANDS", "MA50", "MA100"]
+    options = ["None", "RSI", "MACD", "BBANDS", "MFI", "MA50", "MA100"]
 
     selection = st.selectbox("Pick the asset", tickers)
     dropdown = st.selectbox("Pick your indicators", options)
-
 
     start = st.date_input("Start", value=pd.to_datetime("2014-09-17"))
     end = st.date_input("End", value=pd.to_datetime("2022-09-19"))
@@ -149,15 +226,22 @@ def other_coins():
         others = roll_mean_features(others, [100])
         st.line_chart(others[["Close", "SMA_100"]])
 
+    elif dropdown == "MACD":
+        others = MACD(others, 12, 26, 9)
+        st.line_chart(others[["MACD", "MACDsig"]])
+
+
 
 page_names_to_funcs = {
-    "Intro": intro,
-    "Indicators": indicators,
-    "Prediction": precision,
-    "Other Coins": other_coins
-
+    "Intro 👋": intro,
+    "Indicators 📊": indicators,
+    "Prediction 📈": prediction,
+    "Other Coins 💰": other_coins
 
 }
 
 demo_name = st.sidebar.selectbox("Choose a section", page_names_to_funcs.keys())
 page_names_to_funcs[demo_name]()
+
+
+
