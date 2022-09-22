@@ -23,8 +23,9 @@ sarima_prediction.index = sarima_prediction.index.astype("datetime64[ns]")
 sarima_prediction.rename(columns={"predicted_mean": "Prediction"}, inplace=True)
 concat_sarima_test = pd.concat([test_one, sarima_prediction], ignore_index=True)  # for better plotting
 
-pred = pd.read_csv("prediction.csv", index_col=[0])  # for LGBM
-pred.index = pred.index.astype("datetime64[ns]")
+pred = pd.read_csv("prediction.csv")
+pred["Close Time"] = pred["Close Time"].astype("datetime64[ns]")
+pred.set_index("Close Time", inplace=True)
 data = df.copy()
 data.index = data["Close Time"].astype("datetime64[ns]")
 data["Close Time"] = pd.to_datetime(data["Close Time"]).dt.date
