@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 # RSI
@@ -55,3 +56,18 @@ def mfi(high, low, close, volume, n=14):
     mf_avg_gain = signed_mf.rolling(n).apply(gain, raw=True)
     mf_avg_loss = signed_mf.rolling(n).apply(loss, raw=True)
     return (100 - (100 / (1 + (mf_avg_gain / abs(mf_avg_loss))))).to_numpy()
+
+
+def MACD(df, n_fast, n_slow, n_smooth):
+    data = df['Close']
+    fastEMA = data.ewm(span=n_fast, min_periods=n_slow).mean()
+    slowEMA = data.ewm(span=n_slow, min_periods=n_slow).mean()
+    MACD = pd.Series(fastEMA - slowEMA, name='MACD')
+    MACDsig = pd.Series(MACD.ewm(span=n_smooth, min_periods=n_smooth).mean(), name='MACDsig')
+    MACDhist = pd.Series(MACD - MACDsig, name='MACDhist')
+    df = df.join(MACD)
+    df = df.join(MACDsig)
+    df = df.join(MACDhist)
+
+    return df
+
