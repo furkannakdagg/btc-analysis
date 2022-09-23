@@ -7,6 +7,11 @@ from PIL import Image
 qr = Image.open('QR.png')
 btc_logo = Image.open('btc.png')
 df = pd.read_csv("data.csv")
+indic = pd.read_csv("indic.csv")
+indic.index = indic["Close Time"].astype("datetime64[ns]")
+indic["Close Time"] = pd.to_datetime(indic["Close Time"]).dt.date
+indic["MACD_"] = indic["MACD"]
+indic.drop("MACD", axis=1, inplace=True)
 
 test_one = pd.read_csv("test_one.csv", index_col=[0])
 test_one.index = test_one.index.astype("datetime64[ns]")
@@ -82,23 +87,23 @@ def indicators():
     start = st.date_input("Start", value=pd.to_datetime("2014-09-17"))
     end = st.date_input("End", value=pd.to_datetime("2022-09-19"))
 
-    interval = (data.loc[:, "Close Time"] < end) & (data.loc[:, "Close Time"] > start)
-    st.line_chart(data[interval]["Close"])
+    interval = (indic.loc[:, "Close Time"] < end) & (indic.loc[:, "Close Time"] > start)
+    st.line_chart(indic[interval]["Close"])
 
     if len(dropdown) > 0:
         try:
             for i in dropdown:
-                st.line_chart(data[interval][i])
+                st.line_chart(indic[interval][i])
 
         except KeyError:
             if "BBANDS" in dropdown:
-                st.line_chart(data[interval][["Close", "MiddleBand_30", "UpperBand_30", "LowerBand_30"]])
+                st.line_chart(indic[interval][["Close", "MiddleBand_30", "UpperBand_30", "LowerBand_30"]])
             if "MA50" in dropdown:
-                st.line_chart(data[interval][["Close", "SMA_50"]])
+                st.line_chart(indic[interval][["Close", "SMA_50"]])
             if "MA100" in dropdown:
-                st.line_chart(data[interval][["Close", "SMA_100"]])
+                st.line_chart(indic[interval][["Close", "SMA_100"]])
             if "MACD" in dropdown:
-                st.line_chart(data[interval][["MACD_", "MACDsig"]])
+                st.line_chart(indic[interval][["MACD_", "MACDsig"]])
 
 
 def prediction():
